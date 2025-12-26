@@ -9,36 +9,49 @@ const sql = neon(process.env.DATABASE_URL);
 app.use(cors());
 app.use(express.json());
 
-// 1. GET ALL EXPENSES
+// GET all expenses
 app.get('/api/expenses', async (req, res) => {
     try {
-        const data = await sql`SELECT * FROM expenses ORDER BY created_at DESC`;
+        const data = await sql`
+            SELECT id, description, amount, category, 
+            TO_CHAR(created_at, 'DD Mon, YYYY') as date_label 
+            FROM expenses 
+            ORDER BY created_at DESC
+        `;
         res.json(data);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// 2. ADD NEW EXPENSE
-app.post('/api/expenses', async (req, res) => {
-    const { description, amount, category } = req.body;
-    
-    // Convert amount to number to ensure database likes it
-    const numericAmount = parseFloat(amount);
-
+// Summary for Visual Charts
+app.get('/api/summary', async (req, res) => {
     try {
-        const result = await sql`
-            INSERT INTO expenses (description, amount, category) 
-            VALUES (${description}, ${numericAmount}, ${category}) 
-            RETURNING *`;
-        res.status(201).json(result[0]);
+        const summary = await sql`
+            SELECT category, SUM(amount) as total 
+            FROM expenses 
+            GROUP BY category
+            ORDER BY total DESC
+        `;
+        res.json(summary);
     } catch (err) {
-        console.error(err);
         res.status(500).json({ error: err.message });
     }
 });
 
-// 3. DELETE EXPENSE
+app.post('/api/expenses', async (req, res) => {
+    const { description, amount, category } = req.body;
+    try {
+        await sql`
+            INSERT INTO expenses (description, amount, category) 
+            VALUES (${description}, ${parseFloat(amount)}, ${category})
+        `;
+        res.status(201).json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.delete('/api/expenses/:id', async (req, res) => {
     try {
         await sql`DELETE FROM expenses WHERE id = ${req.params.id}`;
@@ -48,4 +61,4 @@ app.delete('/api/expenses/:id', async (req, res) => {
     }
 });
 
-app.listen(PORT, () => console.log(`🚀 Expense API Live on ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Phase 22: Visuals Active on ${PORT}`));
